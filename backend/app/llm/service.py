@@ -1,73 +1,152 @@
-import os
-from .groq_client import get_groq_client
-from .prompts import SUMMARY_EXPLANATION_PROMPT, ASK_QUESTION_PROMPT
-from .number_check import verify_numbers_in_text
-from .image_utils import image_bytes_to_base64
+"""Public LLM functions used by the API.
 
-# Updated active Groq model
-DEFAULT_MODEL = "openai/gpt-oss-20b"
+Online mode: Groq writes the summary, explanation and answers.
+Offline mode (no key, no internet, Groq error): explain() reports
+"unavailable" and the API falls back to the template summary.
+"""
 
-def generate_chart_summary(title: str, chart_type: str, table_data: str, facts_data: str) -> dict:
+import json
+import re
+from typing import Optional
+
+from app.analysis.template_summary import labels_are_ordered
+from app.extraction.parse import to_number
+from app.llm import prompts
+from app.llm.groq_client import VISION_MODEL, LLMError, chat_json, chat_text
+from app.llm.image_utils import to_data_url
+from app.llm.number_check import check_numbers
+
+__all__ = ["LLMError", "explain", "answer_question", "extract_table_vision", "describe_image_generic", "check_numbers"]
+
+MAX_HISTORY = 6
+MAX_TOKENS = 2000  # reasoning models spend tokens thinking before they answer
+
+
+_SIGNED_DROP = re.compile(r"\b(drop|dropped|decline|declined|fall|fell|decrease|decreased|loss|lost)(\s+(?:of|by))?\s+-(?=\d)", re.I)
+
+
+def _no_double_negative(text: str) -> str:
+    """'a decline of -2' -> 'a decline of 2' (the AI sometimes copies the sign)."""
+    return _SIGNED_DROP.sub(lambda m: m.group(1) + (m.group(2) or "") + " ", text)
+
+
+def _chart_message(title: Optional[str], chart_type: str, table: dict, facts: dict) -> dict:
+    labels = [str(r[0]) for r in table.get("rows", [])]
+    ordered = labels_are_ordered(labels)
+    if not ordered:
+        # Categories (cities, brands...) have no order, so "rises" between them mean nothing.
+        keep = {"name", "max", "min", "total", "shares"}
+        facts = {"series": [{k: v for k, v in s.items() if k in keep} for s in facts.get("series", [])]}
+    payload = {
+        "title": title,
+        "chart_type": chart_type,
+        "labels_in_time_order": ordered,
+        "table": table,
+        "facts": facts,
+    }
+    return {"role": "user", "content": json.dumps(payload)}
+
+
+def explain(title: Optional[str], chart_type: str, table: dict, facts: dict) -> dict:
+    """{"status": "ok", "summary", "explanation"} | {"status": "unavailable"} | {"status": "numbers_unverified"}."""
+    messages = [{"role": "system", "content": prompts.SYSTEM_EXPLAIN}, _chart_message(title, chart_type, table, facts)]
+    try:
+        for attempt in range(2):
+            data = chat_json(messages, max_tokens=MAX_TOKENS)
+            summary, explanation = data.get("summary"), data.get("explanation")
+            if not isinstance(summary, str) or not isinstance(explanation, str):
+                return {"status": "unavailable"}
+            bad = check_numbers(summary + " " + explanation, table, facts, title)
+            if not bad:
+                return {
+                    "status": "ok",
+                    "summary": _no_double_negative(summary.strip()),
+                    "explanation": _no_double_negative(explanation.strip()),
+                }
+            messages += [
+                {"role": "assistant", "content": json.dumps(data)},
+                {"role": "user", "content": prompts.RETRY_NUMBERS.format(numbers=", ".join(bad))},
+            ]
+        return {"status": "numbers_unverified"}
+    except LLMError:
+        return {"status": "unavailable"}
+
+
+def answer_question(question: str, title: Optional[str], chart_type: str, table: dict, facts: dict, history: list[dict]) -> dict:
+    """{"answer": str, "on_topic": bool}. Never raises."""
+    question = (question or "").strip()
+    if not question or len(question) > 500:
+        return {"answer": "Please ask a shorter question about this chart.", "on_topic": True}
+
+    messages = [{"role": "system", "content": prompts.SYSTEM_QA}, _chart_message(title, chart_type, table, facts)]
+    messages += [{"role": m["role"], "content": m["content"]} for m in history[-MAX_HISTORY:]]
+    messages.append({"role": "user", "content": question})
+    try:
+        data = chat_json(messages, max_tokens=MAX_TOKENS)
+    except LLMError:
+        return {
+            "answer": "Questions need an internet connection and an AI key. The summary and data table above still work offline.",
+            "on_topic": True,
+        }
+    answer = data.get("answer")
+    if not isinstance(answer, str) or not answer.strip():
+        return {"answer": "Sorry, I could not answer that. Please try rephrasing.", "on_topic": True}
+    return {"answer": _no_double_negative(answer.strip()), "on_topic": bool(data.get("on_topic", True))}
+
+
+def extract_table_vision(image_bytes: bytes) -> dict:
+    """Read the chart with Groq's vision model (online, about 3-6 s).
+
+    Returns {"title", "chart_type", "columns", "rows", "right_axis", "printed_values"}
+    in the same table shape as DePlot's parsed output. Raises LLMError.
     """
-    Generates a plain-language summary and explanation for the chart, 
-    ensuring all numbers are verified against source data.
-    """
-    client = get_groq_client()
-    
-    prompt = SUMMARY_EXPLANATION_PROMPT.format(
-        title=title,
-        chart_type=chart_type,
-        table_data=table_data,
-        facts_data=facts_data
-    )
-    
-    response = client.chat.completions.create(
-        model=DEFAULT_MODEL,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.3,
-        max_tokens=500
-    )
-    
-    answer_text = response.choices[0].message.content
-    
-    # Verify numbers to prevent hallucination
-    source_texts = [title, chart_type, str(table_data), str(facts_data)]
-    is_valid, unverified = verify_numbers_in_text(answer_text, source_texts)
-    
+    content = [
+        {"type": "text", "text": prompts.EXTRACT_TABLE},
+        {"type": "image_url", "image_url": {"url": to_data_url(image_bytes)}},
+    ]
+    data = chat_json([{"role": "user", "content": content}], model=VISION_MODEL, temperature=0.1, max_tokens=MAX_TOKENS)
+    labels = data.get("labels")
+    series = data.get("series")
+    if not isinstance(labels, list) or not isinstance(series, list) or not labels or not series:
+        raise LLMError("vision model returned no table")
+
+    def number(v):
+        if isinstance(v, bool):
+            return None
+        if isinstance(v, (int, float)):
+            return int(v) if float(v).is_integer() else v
+        if isinstance(v, str):
+            return to_number(v)
+        return None
+
+    names, columns_values = [], []
+    for i, s in enumerate(series):
+        if not isinstance(s, dict) or not isinstance(s.get("values"), list):
+            continue
+        names.append(str(s.get("name") or f"Series {i + 1}"))
+        columns_values.append([number(v) for v in s["values"]])
+    if not names:
+        raise LLMError("vision model returned no series")
+
+    rows = [[str(label)] + [vals[r] if r < len(vals) else None for vals in columns_values] for r, label in enumerate(labels)]
+    chart_type = data.get("chart_type") if data.get("chart_type") in ("bar", "line", "pie") else None
     return {
-        "response": answer_text,
-        "verified": is_valid,
-        "unverified_numbers": unverified
+        "title": data.get("title") or None,
+        "chart_type": chart_type,
+        "columns": [str(data.get("label_column") or "Label")] + names,
+        "rows": rows,
+        "right_axis": [str(s.get("name")) for s in series if isinstance(s, dict) and s.get("axis") == "right"],
+        "printed_values": bool(data.get("printed_values")),
     }
 
-def answer_chart_question(title: str, chart_type: str, table_data: str, facts_data: str, question: str) -> dict:
-    """
-    Answers a specific user question about the chart using extracted data and facts.
-    """
-    client = get_groq_client()
-    
-    prompt = ASK_QUESTION_PROMPT.format(
-        title=title,
-        chart_type=chart_type,
-        table_data=table_data,
-        facts_data=facts_data,
-        question=question
-    )
-    
-    response = client.chat.completions.create(
-        model=DEFAULT_MODEL,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.3,
-        max_tokens=400
-    )
-    
-    answer_text = response.choices[0].message.content
-    
-    source_texts = [title, chart_type, str(table_data), str(facts_data)]
-    is_valid, unverified = verify_numbers_in_text(answer_text, source_texts)
-    
-    return {
-        "response": answer_text,
-        "verified": is_valid,
-        "unverified_numbers": unverified
-    }
+
+def describe_image_generic(image_bytes: bytes) -> dict:
+    """{"description": str, "model": str}. Raises LLMError (the API turns it into HTTP 503)."""
+    content = [
+        {"type": "text", "text": prompts.PROMPT_COMPARE},
+        {"type": "image_url", "image_url": {"url": to_data_url(image_bytes)}},
+    ]
+    text = chat_text([{"role": "user", "content": content}], model=VISION_MODEL)
+    if not text:
+        raise LLMError("empty description")
+    return {"description": text, "model": VISION_MODEL}
