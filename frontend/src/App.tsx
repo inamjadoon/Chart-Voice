@@ -313,8 +313,8 @@ export default function App() {
             them.
           </p>
           <p>
-            Built for Banana Hacks 2026 by Inam, Hasnain and Muhammad Talal
-            Jamil. <a href="#team">Meet the team</a>
+            Built for Banana Hacks 2026 by Inam, Muhammad Talal Jamil and
+            Hasnain. <a href="#team">Meet the team</a>
           </p>
         </div>
       </footer>

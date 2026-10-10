@@ -24,6 +24,16 @@ const TEAM: Member[] = [
     ],
   },
   {
+    name: "Muhammad Talal Jamil",
+    initials: "MTJ",
+    role: "Frontend and accessibility",
+    built:
+      "The interface you are using: read aloud, the sound explorer, the themes and text sizes, and making all of it work with a keyboard, a screen reader and a phone.",
+    links: [
+      { label: "talaljamil.com", href: "https://talaljamil.com/", kind: "web" },
+    ],
+  },
+  {
     name: "Hasnain",
     initials: "HA",
     role: "AI summaries and questions",
@@ -35,16 +45,6 @@ const TEAM: Member[] = [
         href: "https://github.com/MuhammadHasnain77",
         kind: "github",
       },
-    ],
-  },
-  {
-    name: "Muhammad Talal Jamil",
-    initials: "MTJ",
-    role: "Frontend and accessibility",
-    built:
-      "The interface you are using: read aloud, the sound explorer, the themes and text sizes, and making all of it work with a keyboard, a screen reader and a phone.",
-    links: [
-      { label: "talaljamil.com", href: "https://talaljamil.com/", kind: "web" },
     ],
   },
 ];

@@ -8,7 +8,7 @@
 
 ChartVoice turns a picture of a bar, line or pie chart into a plain-language summary, a real data table, speech and sound. It is built for people who can't see a chart, struggle to read one, or just don't trust their reading of it.
 
-Built in one weekend at [Banana Hacks 2026](https://www.bananahacks.tech) by Inam, Hasnain and Talal.
+Built in one weekend at [Banana Hacks 2026](https://www.bananahacks.tech) by Inam, Talal and Hasnain.
 
 <p align="center">
   <img src="frontend/screenshots/results.png" alt="ChartVoice results page for a monthly sales bar chart. A summary says sales rose from 20 in January to 55 in May, with three large numbers below it: highest 55 in May, lowest 20 in January, trend increasing. Below are a Read summary aloud button and a box to ask questions." width="720">
@@ -156,8 +156,8 @@ We'd rather you hear these from us:
 | | Worked on |
 |---|---|
 | **Inam** ([@inamjadoon](https://github.com/inamjadoon)) | Backend API, DePlot extraction and parsing, facts and checks, evaluation |
-| **Hasnain** ([@MuhammadHasnain77](https://github.com/MuhammadHasnain77)) | Groq LLM module (summaries, questions, comparison, number check), sample charts and ground truth |
 | **Muhammad Talal Jamil** ([talaljamil.com](https://talaljamil.com/)) | Frontend: interface, accessibility, read aloud, sonification and keyboard explorer |
+| **Hasnain** ([@MuhammadHasnain77](https://github.com/MuhammadHasnain77)) | Groq LLM module (summaries, questions, comparison, number check), sample charts and ground truth |
 
 ## Credits
 

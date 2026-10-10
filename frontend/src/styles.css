@@ -1034,7 +1034,7 @@ tbody tr:nth-child(even) {
   margin: 0 0 1.25rem;
   display: grid;
   gap: 1.25rem;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  grid-template-columns: minmax(0, 1fr);
 }
 .team-grid .card {
   margin: 0;
