@@ -14,7 +14,7 @@ from app.extraction.parse import to_number
 from app.llm import prompts
 from app.llm.groq_client import VISION_MODEL, LLMError, chat_json, chat_text
 from app.llm.image_utils import to_data_url
-from app.llm.number_check import check_numbers
+from app.llm.number_check import check_directions, check_numbers
 
 __all__ = ["LLMError", "explain", "answer_question", "extract_table_vision", "describe_image_generic", "check_numbers"]
 
@@ -25,8 +25,13 @@ MAX_TOKENS = 2000  # reasoning models spend tokens thinking before they answer
 _SIGNED_DROP = re.compile(r"\b(drop|dropped|decline|declined|fall|fell|decrease|decreased|loss|lost)(\s+(?:of|by))?\s+-(?=\d)", re.I)
 
 
+_ODD_CHARS = str.maketrans({"‑": "-", "‐": "-", "–": "-", " ": " ", " ": " ", " ": " ", "÷": "/"})
+
+
 def _no_double_negative(text: str) -> str:
-    """'a decline of -2' -> 'a decline of 2' (the AI sometimes copies the sign)."""
+    """Clean AI text for reading aloud: plain hyphens and spaces, and
+    'a decline of -2' -> 'a decline of 2' (the AI sometimes copies the sign)."""
+    text = text.translate(_ODD_CHARS)
     return _SIGNED_DROP.sub(lambda m: m.group(1) + (m.group(2) or "") + " ", text)
 
 
@@ -56,16 +61,23 @@ def explain(title: Optional[str], chart_type: str, table: dict, facts: dict) -> 
             summary, explanation = data.get("summary"), data.get("explanation")
             if not isinstance(summary, str) or not isinstance(explanation, str):
                 return {"status": "unavailable"}
-            bad = check_numbers(summary + " " + explanation, table, facts, title)
-            if not bad:
+            text = summary + " " + explanation
+            bad = check_numbers(text, table, facts, title)
+            wrong_way = check_directions(text, table)
+            if not bad and not wrong_way:
                 return {
                     "status": "ok",
                     "summary": _no_double_negative(summary.strip()),
                     "explanation": _no_double_negative(explanation.strip()),
                 }
+            problems = []
+            if bad:
+                problems.append(prompts.RETRY_NUMBERS.format(numbers=", ".join(bad)))
+            if wrong_way:
+                problems.append(prompts.RETRY_DIRECTIONS.format(phrases="; ".join(f'"{p}"' for p in wrong_way)))
             messages += [
                 {"role": "assistant", "content": json.dumps(data)},
-                {"role": "user", "content": prompts.RETRY_NUMBERS.format(numbers=", ".join(bad))},
+                {"role": "user", "content": " ".join(problems)},
             ]
         return {"status": "numbers_unverified"}
     except LLMError:
