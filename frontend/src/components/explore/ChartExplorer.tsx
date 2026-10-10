@@ -110,6 +110,9 @@ export default function ChartExplorer({ result }: { result: AnalyzeResponse }) {
         </ol>
       </div>
 
+      <p className="touch-hint small" aria-hidden="true">
+        Tap a bar to hear its value.
+      </p>
       <div id={helpId} className="keys">
         <p className="small"><strong>Click the box above or Tab to it, then use:</strong></p>
         <ul className="small">

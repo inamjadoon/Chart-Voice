@@ -61,6 +61,23 @@ else {
   console.log(`FAIL explorer announcement: "${said}"`)
 }
 
+// Phone: axe at the largest text size, and nothing may scroll sideways
+for (const width of [320, 390]) {
+  const phone = await (await browser.newContext({ viewport: { width, height: 800 }, isMobile: true, hasTouch: true })).newPage()
+  await phone.addInitScript(() => localStorage.setItem('cv-text', 'xlarge'))
+  await phone.goto(URL)
+  await phone.getByRole('button', { name: /Pie chart/ }).click()
+  await phone.getByRole('heading', { name: /Results:/ }).waitFor({ timeout: 60000 })
+  for (const name of ['Listen to the chart', 'See all the numbers', 'All key facts'])
+    await phone.getByRole('button', { name }).click()
+  await check(phone, `phone ${width}px results`)
+  const extra = await phone.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+  if (extra > 0) {
+    failures++
+    console.log(`FAIL phone ${width}px scrolls sideways by ${extra}px`)
+  } else console.log(`ok   phone ${width}px fits the screen`)
+}
+
 await browser.close()
 console.log(failures ? `\n${failures} problem(s) found` : '\nAll accessibility checks passed')
 process.exit(failures ? 1 : 0)
