@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="frontend/public/icon-192.png" alt="" width="96" height="96">
+</p>
+
 # ChartVoice
 
 **Hear, read and check the numbers inside a chart.**

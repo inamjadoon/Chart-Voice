@@ -222,13 +222,18 @@ export default function App() {
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
+// Speech bubble holding a rising bar chart: a chart that talks. Colors follow the theme.
 function Logo() {
   return (
-    <svg className="logo" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true">
-      <rect x="1" y="1" width="46" height="46" rx="12" fill="var(--primary)" />
-      <rect x="10" y="26" width="6" height="12" rx="1.5" fill="var(--on-primary)" />
-      <rect x="20" y="18" width="6" height="20" rx="1.5" fill="var(--on-primary)" />
-      <path d="M32 17a7 7 0 010 10M35.5 13a12 12 0 010 18" fill="none" stroke="var(--accent)" strokeWidth="3" strokeLinecap="round" />
+    <svg className="logo" viewBox="0 0 64 64" width="48" height="48" aria-hidden="true">
+      <rect width="64" height="64" rx="15" fill="var(--primary)" />
+      <path
+        d="M19 11h26a8 8 0 0 1 8 8v17a8 8 0 0 1-8 8H30l-10.5 9.5V44H19a8 8 0 0 1-8-8V19a8 8 0 0 1 8-8z"
+        fill="var(--on-primary)"
+      />
+      <rect x="18" y="29" width="7" height="9" rx="1.5" fill="var(--primary)" />
+      <rect x="28.5" y="23" width="7" height="15" rx="1.5" fill="var(--primary)" />
+      <rect x="39" y="17" width="7" height="21" rx="1.5" fill="var(--accent)" />
     </svg>
   )
 }
