@@ -20,6 +20,7 @@ __all__ = ["LLMError", "explain", "answer_question", "extract_table_vision", "de
 
 MAX_HISTORY = 6
 MAX_TOKENS = 2000  # reasoning models spend tokens thinking before they answer
+VISION_MAX_TOKENS = 900  # free-tier vision limit is 1,000 output tokens per minute
 
 
 _SIGNED_DROP = re.compile(r"\b(drop|dropped|decline|declined|fall|fell|decrease|decreased|loss|lost)(\s+(?:of|by))?\s+-(?=\d)", re.I)
@@ -35,7 +36,9 @@ def _no_double_negative(text: str) -> str:
     return _SIGNED_DROP.sub(lambda m: m.group(1) + (m.group(2) or "") + " ", text)
 
 
-def _chart_message(title: Optional[str], chart_type: str, table: dict, facts: dict) -> dict:
+def _chart_message(
+    title: Optional[str], chart_type: str, table: dict, facts: dict, estimated: bool = False, axes: Optional[dict] = None
+) -> dict:
     labels = [str(r[0]) for r in table.get("rows", [])]
     ordered = labels_are_ordered(labels)
     if not ordered:
@@ -46,15 +49,28 @@ def _chart_message(title: Optional[str], chart_type: str, table: dict, facts: di
         "title": title,
         "chart_type": chart_type,
         "labels_in_time_order": ordered,
+        "values_estimated": estimated,
         "table": table,
         "facts": facts,
     }
+    if axes:
+        payload["axes"] = axes
     return {"role": "user", "content": json.dumps(payload)}
 
 
-def explain(title: Optional[str], chart_type: str, table: dict, facts: dict) -> dict:
-    """{"status": "ok", "summary", "explanation"} | {"status": "unavailable"} | {"status": "numbers_unverified"}."""
-    messages = [{"role": "system", "content": prompts.SYSTEM_EXPLAIN}, _chart_message(title, chart_type, table, facts)]
+def explain(
+    title: Optional[str], chart_type: str, table: dict, facts: dict, estimated: bool = False, axes: Optional[dict] = None
+) -> dict:
+    """{"status": "ok", "summary", "explanation"} | {"status": "unavailable"} | {"status": "numbers_unverified"}.
+
+    estimated: values were read off the axes (no printed numbers), so the text says "about".
+    axes: axis titles, units and ranges from the chart reader, described in the explanation.
+    """
+    messages = [
+        {"role": "system", "content": prompts.SYSTEM_EXPLAIN},
+        _chart_message(title, chart_type, table, facts, estimated, axes),
+    ]
+    check_facts = {"facts": facts, "axes": axes or {}}  # axis numbers (e.g. "0 to 8000") are allowed too
     try:
         for attempt in range(2):
             data = chat_json(messages, max_tokens=MAX_TOKENS)
@@ -62,7 +78,7 @@ def explain(title: Optional[str], chart_type: str, table: dict, facts: dict) -> 
             if not isinstance(summary, str) or not isinstance(explanation, str):
                 return {"status": "unavailable"}
             text = summary + " " + explanation
-            bad = check_numbers(text, table, facts, title)
+            bad = check_numbers(text, table, check_facts, title)
             wrong_way = check_directions(text, table)
             if not bad and not wrong_way:
                 return {
@@ -116,7 +132,8 @@ def extract_table_vision(image_bytes: bytes) -> dict:
         {"type": "text", "text": prompts.EXTRACT_TABLE},
         {"type": "image_url", "image_url": {"url": to_data_url(image_bytes)}},
     ]
-    data = chat_json([{"role": "user", "content": content}], model=VISION_MODEL, temperature=0.1, max_tokens=MAX_TOKENS)
+    # Groq's free tier allows 1,000 output tokens per minute for the vision model; ask for less.
+    data = chat_json([{"role": "user", "content": content}], model=VISION_MODEL, temperature=0.1, max_tokens=VISION_MAX_TOKENS)
     labels = data.get("labels")
     series = data.get("series")
     if not isinstance(labels, list) or not isinstance(series, list) or not labels or not series:
@@ -142,9 +159,13 @@ def extract_table_vision(image_bytes: bytes) -> dict:
 
     rows = [[str(label)] + [vals[r] if r < len(vals) else None for vals in columns_values] for r, label in enumerate(labels)]
     chart_type = data.get("chart_type") if data.get("chart_type") in ("bar", "line", "pie") else None
+    axes = data.get("axes") if isinstance(data.get("axes"), dict) else None
+    if axes:
+        axes = {side: a for side, a in axes.items() if side in ("left", "right") and isinstance(a, dict)} or None
     return {
         "title": data.get("title") or None,
         "chart_type": chart_type,
+        "axes": axes,
         "columns": [str(data.get("label_column") or "Label")] + names,
         "rows": rows,
         "right_axis": [str(s.get("name")) for s in series if isinstance(s, dict) and s.get("axis") == "right"],
