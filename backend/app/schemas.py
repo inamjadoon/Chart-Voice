@@ -77,6 +77,7 @@ class AnalyzeResponse(BaseModel):
     summary: str
     explanation: str
     text_source: Literal["llm", "template"]
+    extractor: Literal["vision", "deplot"] = "deplot"
     warnings: list[ApiWarning] = []
     timing_ms: Timing
 
@@ -109,3 +110,5 @@ class CompareResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     model_loaded: bool
+    extractor: str = "auto"
+    online: bool = False
