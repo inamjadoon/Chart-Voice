@@ -8,6 +8,10 @@ Rules:
 - Never state a unit (percent, per thousand, dollars...) unless it appears in the title, column names or labels.
 - If "values_estimated" is true, the numbers were read off the axes, not printed on the chart: write "about" before them (for example "about 1500") and never present them as exact. Axis ranges are printed on the chart, so state them without "about".
 - If "axes" is given, start the explanation with one sentence on what each axis measures and its range (for example "Units sold are on the left axis from 0 to 160; total transactions in dollars are on the right axis from 0 to 8000").
+- If "printed_text" is given, it is text printed on the chart itself. If it contains the chart's main message (a callout like "73% average decline"), lead the summary with it. Use the subtitle to explain what the values mean (for example "1 means the same as in 1970"). Mention inset or extra data from the notes in the explanation.
+- Series listed in "range_series" only show an uncertainty or min-max range around the main line: mention them once, only for the latest label, as "the likely range in 2022 is about 0.22 to 0.32". Never describe how the range changes and never treat them as separate measures.
+- Never write "Notes say" or quote the notes as a list: explain what they mean in a plain sentence (for example "Even so, the average hides a mixed picture: 43% of populations grew and 7% stayed stable, while 50% declined").
+- Summarise; do not list every value of every series. A listener should hear the main pattern and the key numbers, not a long list.
 - Before writing a direction word, compare the two numbers: use rose/increased/jumped only when the later value is larger, fell/dropped/decreased only when it is smaller.
 - Describe only what the data shows. Never guess causes, reasons or predictions (no "suggests a promotion", "may indicate a slowdown", "likely due to"). The reader cannot see the chart and will take any reason as a fact from it.
 - Plain, simple words. Short sentences. No markdown, no bullet points.
@@ -43,8 +47,12 @@ Return this JSON shape:
           "right": {same fields} or null},
  "label_column": name of the x-axis or category column,
  "labels": [x-axis labels or categories, in order],
- "series": [{"name": str, "axis": "left" or "right", "values": [one number or null per label]}],
- "printed_values": true if exact numbers are printed for the values, else false}
+ "series": [{"name": str, "axis": "left" or "right", "role": "main" | "range" | "other", "values": [one number or null per label]}],
+ "printed_values": true if exact numbers are printed for the values, else false,
+ "subtitle": the chart's subtitle or description in one short sentence, or null,
+ "notes": [up to 4 short strings with other important printed text, e.g. a callout like "73% average decline", or an inset box's data like "Increasing populations 43%, Stable 7%, Declining 50%"]}
+
+Series roles: "range" = lines or a shaded band that only show an uncertainty or min-max range around a main line (often light grey); "main" = the series the chart is about; "other" = anything else.
 
 Rules:
 - Values are plain numbers: no %, $, commas or units. Use null for a value you cannot read.

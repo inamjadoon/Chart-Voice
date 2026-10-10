@@ -37,7 +37,13 @@ def _no_double_negative(text: str) -> str:
 
 
 def _chart_message(
-    title: Optional[str], chart_type: str, table: dict, facts: dict, estimated: bool = False, axes: Optional[dict] = None
+    title: Optional[str],
+    chart_type: str,
+    table: dict,
+    facts: dict,
+    estimated: bool = False,
+    axes: Optional[dict] = None,
+    context: Optional[dict] = None,
 ) -> dict:
     labels = [str(r[0]) for r in table.get("rows", [])]
     ordered = labels_are_ordered(labels)
@@ -55,22 +61,33 @@ def _chart_message(
     }
     if axes:
         payload["axes"] = axes
+    if context:
+        payload["printed_text"] = context
     return {"role": "user", "content": json.dumps(payload)}
 
 
 def explain(
-    title: Optional[str], chart_type: str, table: dict, facts: dict, estimated: bool = False, axes: Optional[dict] = None
+    title: Optional[str],
+    chart_type: str,
+    table: dict,
+    facts: dict,
+    estimated: bool = False,
+    axes: Optional[dict] = None,
+    context: Optional[dict] = None,
 ) -> dict:
     """{"status": "ok", "summary", "explanation"} | {"status": "unavailable"} | {"status": "numbers_unverified"}.
 
     estimated: values were read off the axes (no printed numbers), so the text says "about".
     axes: axis titles, units and ranges from the chart reader, described in the explanation.
+    context: printed text from the chart (subtitle, callouts such as "73% average decline",
+             inset data, which series are only uncertainty ranges).
     """
     messages = [
         {"role": "system", "content": prompts.SYSTEM_EXPLAIN},
-        _chart_message(title, chart_type, table, facts, estimated, axes),
+        _chart_message(title, chart_type, table, facts, estimated, axes, context),
     ]
-    check_facts = {"facts": facts, "axes": axes or {}}  # axis numbers (e.g. "0 to 8000") are allowed too
+    # Numbers printed on the chart (axis ranges, callouts, inset data) are real data too.
+    check_facts = {"facts": facts, "axes": axes or {}, "printed_text": context or {}}
     try:
         for attempt in range(2):
             data = chat_json(messages, max_tokens=MAX_TOKENS)
@@ -162,10 +179,15 @@ def extract_table_vision(image_bytes: bytes) -> dict:
     axes = data.get("axes") if isinstance(data.get("axes"), dict) else None
     if axes:
         axes = {side: a for side, a in axes.items() if side in ("left", "right") and isinstance(a, dict)} or None
+    subtitle = data.get("subtitle") if isinstance(data.get("subtitle"), str) else None
+    notes = [n for n in data.get("notes", []) if isinstance(n, str) and n.strip()][:4] if isinstance(data.get("notes"), list) else []
+    ranges = [str(s.get("name")) for s in series if isinstance(s, dict) and s.get("role") == "range"]
     return {
         "title": data.get("title") or None,
         "chart_type": chart_type,
         "axes": axes,
+        # Printed text the plotted data does not contain: the chart's own message and context.
+        "context": {"subtitle": subtitle, "notes": notes, "range_series": ranges} if (subtitle or notes or ranges) else None,
         "columns": [str(data.get("label_column") or "Label")] + names,
         "rows": rows,
         "right_axis": [str(s.get("name")) for s in series if isinstance(s, dict) and s.get("axis") == "right"],

@@ -33,6 +33,16 @@ def test_wrong_direction_words_are_caught():
     assert check_directions("It rose to 50 in Jan.", sales) == []  # first label: nothing to compare
 
 
+def test_wrong_direction_caught_with_about():
+    # Real mistake after estimated values started saying "about": 105 in Apr -> 85 in May called "rose".
+    sales = {"columns": ["Month", "Units"], "rows": [["Apr", 105], ["May", 85], ["Jun", 150]]}
+    assert check_directions("climbed to about 105 in Apr, rose to about 85 in May, and peaked at about 150 in Jun", sales) == [
+        "rose to about 85 in May"
+    ]
+    assert check_directions("fell to about 85 in May, then rose to a peak of about 150 in Jun", sales) == []
+    assert check_directions("dropped to roughly $85 in May", sales) == []
+
+
 def test_numbers_in_title_allowed():
     assert check_numbers("Sales in 2025 peaked at 55.", TABLE, FACTS, title="Monthly sales 2025") == []
     assert check_numbers("Sales in 2025 peaked at 55.", TABLE, FACTS) == ["2025"]
