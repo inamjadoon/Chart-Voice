@@ -156,8 +156,8 @@ We'd rather you hear these from us:
 | | Worked on |
 |---|---|
 | **Inam** ([@inamjadoon](https://github.com/inamjadoon)) | Backend API, DePlot extraction and parsing, facts and checks, evaluation |
-| **Hasnain** | Groq LLM module (summaries, questions, comparison, number check), sample charts and ground truth |
-| **Talal** | Frontend: interface, accessibility, read aloud, sonification and keyboard explorer |
+| **Hasnain** ([@MuhammadHasnain77](https://github.com/MuhammadHasnain77)) | Groq LLM module (summaries, questions, comparison, number check), sample charts and ground truth |
+| **Muhammad Talal Jamil** ([talaljamil.com](https://talaljamil.com/)) | Frontend: interface, accessibility, read aloud, sonification and keyboard explorer |
 
 ## Credits
 
