@@ -45,8 +45,15 @@ export type WarningCode =
   | 'non_numeric'
   | 'shares_not_100'
   | 'single_point'
+  | 'complex_chart'
+  | 'low_confidence'
+  | 'extraction_truncated'
+  | 'dual_axis'
+  | 'values_estimated'
+  | 'readings_disagree'
   | 'llm_unavailable'
   | 'llm_numbers_unverified'
+  | (string & {}) // new codes may be added; show their message as-is
 
 export interface Warning {
   code: WarningCode
@@ -61,6 +68,7 @@ export interface AnalyzeResponse {
   summary: string
   explanation: string
   text_source: 'llm' | 'template'
+  extractor: 'vision' | 'deplot'
   warnings: Warning[]
   timing_ms: { extract: number; llm: number; total: number }
 }

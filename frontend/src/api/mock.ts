@@ -87,6 +87,7 @@ export async function mockAnalyze(file: File): Promise<AnalyzeResponse> {
     facts: { series: [f] },
     ...summaryFor(s, f),
     text_source: 'llm',
+    extractor: 'vision',
     warnings: [],
     timing_ms: { extract: 1200, llm: 200, total: 1400 },
   }
