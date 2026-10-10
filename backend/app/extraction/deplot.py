@@ -20,6 +20,9 @@ MAX_NEW_TOKENS = 512
 # int8 quantization makes CPU matrix maths faster. Measured in eval/speed_test.py.
 MAX_PATCHES = int(os.getenv("DEPLOT_MAX_PATCHES", "2048"))
 QUANTIZE = os.getenv("DEPLOT_QUANTIZE", "0") == "1"
+# Stop writing the table after this many seconds, so a complex chart can never
+# block the server for minutes. The table is then partial and the API warns.
+MAX_SECONDS = float(os.getenv("DEPLOT_MAX_SECONDS", "90"))
 
 
 class DePlotModel:
@@ -39,5 +42,5 @@ class DePlotModel:
             images=image.convert("RGB"), text=PROMPT, return_tensors="pt", max_patches=self.max_patches
         ).to(self.model.device)
         with torch.inference_mode():
-            output = self.model.generate(**inputs, max_new_tokens=MAX_NEW_TOKENS)
+            output = self.model.generate(**inputs, max_new_tokens=MAX_NEW_TOKENS, max_length=None, max_time=MAX_SECONDS)
         return self.processor.decode(output[0], skip_special_tokens=True)
