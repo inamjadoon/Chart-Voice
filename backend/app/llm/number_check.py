@@ -52,7 +52,9 @@ def _supported(x: float, allowed: set) -> bool:
 _UP = r"rose|rises|risen|rising|increased|increases|grew|grows|climbed|climbs|jumped|jumps|surged|surges|went up|goes up"
 _DOWN = r"fell|falls|fallen|dropped|drops|decreased|decreases|declined|declines|dipped|dips|went down|goes down|sank"
 _MOVE = re.compile(
-    rf"\b(?P<word>{_UP}|{_DOWN})\s+(?:back\s+)?to\s+(?:a\s+(?:new\s+)?(?:high|low|peak)\s+of\s+)?(?P<num>-?\d[\d,]*(?:\.\d+)?)\s+(?:in|at|for|on)\s+(?P<label>[^\s,.;]+(?:\s\d{4})?)",
+    rf"\b(?P<word>{_UP}|{_DOWN})\s+(?:back\s+)?to\s+(?:a\s+(?:new\s+)?(?:high|low|peak)\s+of\s+)?"
+    r"(?:(?:about|around|approximately|roughly|nearly|almost|just\s+(?:over|under|above|below))\s+)?\$?"
+    r"(?P<num>-?\d[\d,]*(?:\.\d+)?)\s+(?:in|at|for|on|by)\s+(?P<label>[^\s,.;]+(?:\s\d{4})?)",
     re.I,
 )
 
