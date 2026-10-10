@@ -149,7 +149,7 @@ async def analyze(
         return result
 
     # 1. Read the chart into a table.
-    parsed, extractor, vision_type, axes = None, None, None, None
+    parsed, extractor, vision_type, axes, context = None, None, None, None, None
     right_axis, printed_values, truncated, extra_warnings = [], None, False, []
 
     if EXTRACTOR in ("auto", "vision"):
@@ -158,6 +158,7 @@ async def analyze(
             parsed = ParsedTable(v["title"], v["columns"], v["rows"], ok=bool(v["rows"]) and len(v["columns"]) >= 2)
             extractor, vision_type = "vision", v["chart_type"]
             right_axis, printed_values, axes = v["right_axis"], v["printed_values"], v.get("axes")
+            context = v.get("context")
             if not parsed.ok and EXTRACTOR == "auto":
                 parsed = None  # unusable reading: fall back to DePlot below
         except llm.LLMError as exc:
@@ -199,7 +200,7 @@ async def analyze(
     llm_start = time.perf_counter()
     result = {"status": "unavailable"}
     if parsed.ok and facts["series"]:
-        result = await run_in_threadpool(llm.explain, parsed.title, ctype, table, facts, printed_values is False, axes)
+        result = await run_in_threadpool(llm.explain, parsed.title, ctype, table, facts, printed_values is False, axes, context)
     llm_ms = int((time.perf_counter() - llm_start) * 1000)
 
     if result["status"] == "ok":
