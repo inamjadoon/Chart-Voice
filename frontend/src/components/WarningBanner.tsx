@@ -11,8 +11,8 @@ export default function WarningBanner({ warnings }: { warnings: Warning[] }) {
       <div>
         <h3 id="warn-h">Please double check these results</h3>
         <ul>
-          {warnings.map((w) => (
-            <li key={w.code}>{w.message}</li>
+          {warnings.map((w, i) => (
+            <li key={`${w.code}-${i}`}>{w.message}</li>
           ))}
         </ul>
       </div>

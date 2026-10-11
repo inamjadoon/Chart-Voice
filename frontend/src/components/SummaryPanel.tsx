@@ -43,7 +43,10 @@ export default function SummaryPanel({ result }: { result: AnalyzeResponse }) {
       <p className="muted small source-note">
         {result.text_source === 'llm'
           ? 'Written by an AI model from the numbers it read. Numbers can be wrong.'
-          : 'Built directly from the numbers read from your chart. Numbers can be wrong.'}
+          : 'Built directly from the numbers read from your chart. Numbers can be wrong.'}{' '}
+        {result.extractor === 'vision'
+          ? 'Chart read by an online AI model.'
+          : 'Chart read by the offline DePlot model on this computer.'}
       </p>
     </>
   )

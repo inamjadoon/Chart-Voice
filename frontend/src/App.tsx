@@ -106,7 +106,7 @@ export default function App() {
     setError(null);
     setResult(null);
     setImage(file);
-    announce("Reading your chart. This can take a few seconds.");
+    announce("Reading your chart. This can take a few seconds, or up to a minute and a half when working offline.");
     try {
       const res = await analyze(file, chartType);
       setResult(res);
@@ -187,7 +187,10 @@ export default function App() {
                 <img src={imageUrl} alt="" className="loading-thumb" />
               )}
               <span className="spinner" />
-              <span>Reading your chart. This can take a few seconds.</span>
+              <span>
+                Reading your chart. Usually a few seconds; offline it can take
+                up to 90 seconds.
+              </span>
             </div>
           )}
 
